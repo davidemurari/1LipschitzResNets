@@ -17,7 +17,7 @@ class NonExpansiveBlock(torch.nn.Module):
         return x
 
 class AugmentedNonExpansiveBlock(torch.nn.Module):
-    #Residual layer with gradient block together with 3 more components:
+    # Residual layer with gradient block together with 3 more components:
     # [max(x1,x2),min(x1,x2),x3,gradientBlock(x4)]
     def __init__(self, dim_inner=10):
         super().__init__()
@@ -55,10 +55,6 @@ class IntermediateAffine(torch.nn.Module):
         if dim_inner>3:
             #We model the lower block as zeros cat with orthogonal
             self.S = nn.Parameter(torch.randn(dim_inner-3,dim_inner-3))
-            #mat = torch.randn(dim_inner-3,dim_inner-3)
-            #self.S.data = torch.linalg.matrix_exp(0.5*(mat-mat.T))
-            #self.S.data = torch.eye(dim_inner-3)
-
 
         #Bias of the affine maps, initialised as random normal
         self.bias = nn.Parameter(torch.randn(1,dim_inner))
@@ -102,15 +98,12 @@ class IntermediateAffine(torch.nn.Module):
 
     def forward(self, x):
         #Assemble the upper part of the matrix
-        #self.normalise_rows()
         mat = torch.cat((self.first_row,self.second_row,self.third_row),dim=0)
         if self.dim_inner>3:
             #Assemble the lower part of the matrix
             ZZ = torch.zeros((self.dim_inner-3,3),device=x.device)
             A = torch.linalg.matrix_exp(0.5*(self.S-self.S.T))
             bottom = torch.cat((ZZ,A),dim=1)
-            #self.normalise_block()
-            #bottom = torch.cat((ZZ,self.S),dim=1)
             #Concatenate the two horizontal blocks
             mat = torch.cat((mat,bottom),dim=0)
 
@@ -123,7 +116,15 @@ class InvNet(torch.nn.Module):
     #dim_inner = number of hidden neurons
     #L = threshold for final scalar rescaling (i.e. Lip constant)
     #theorem4 = True if the network is the one for Theorem 4.1
-    def __init__(self, n_blocks=3, dim=2, dim_inner=10, L=1., theorem4=True, output_dim=None):
+    def __init__(
+        self, 
+        n_blocks=3, 
+        dim=2, 
+        dim_inner=10, 
+        L=1., 
+        theorem4=True, 
+        output_dim=None
+        ):
         super().__init__()
         
         self.string_descrition = "InvNet, n_blocks={}, dim={}, dim_inner={}, L={}, theorem4={}".format(
@@ -146,17 +147,13 @@ class InvNet(torch.nn.Module):
 
         # Store power-method states for warm-starting
         self.singular_vectors = [None for _ in self.blocks]
-
-        # Run many iterations of the power method at initialisation
         
         #Timesteps for the gradient steps
         self.taus = nn.Parameter(2.*torch.ones(n_blocks))
-        #self.taus = nn.Parameter(torch.rand(n_blocks))
         
         #Output rescaling to twick the Lipschitz constant
         self.c = torch.nn.Parameter(torch.tensor(1.))
 
-        
         if dim_inner > 3:
             #In this way we constrain its ell^2 norm
             self.lift_lower = nn.Linear(dim,dim_inner-3)
@@ -190,9 +187,7 @@ class InvNet(torch.nn.Module):
     
     def increase_dimension(self,x):
         """Increase the dimension of x from dim to dim_inner."""
-        #self.normalise_lifting_upper()
         if self.dim_inner > 3:
-            #self.lift_lower.weight.data = self.lift_lower.weight.data / torch.maximum(torch.linalg.norm(self.lift_lower.weight.data,ord=2),torch.tensor(1.,device=x.device))
             return torch.cat((self.lift_upper(x), self.lift_lower(x)), dim=1)
         else:
             return self.lift_upper(x)
